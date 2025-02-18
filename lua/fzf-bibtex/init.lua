@@ -28,14 +28,14 @@ local files_initialized = false
 local files = {}
 local entries = {}
 local context_files = {}
-local search_keys = { 'author', 'year', 'title' }
+local search_fields = { 'author', 'year', 'title' }
 local citation_format = '{{author}} ({{year}}), {{title}}.'
 local citation_trim_firstname = true
 local citation_max_auth = 2
 local user_context = false
 local user_context_fallback = true
 local delimiter = vim.fn['repeat']('\t', 20)
-local keymaps = {
+local keymap = {
   default = 'insert_key',
   ['ctrl-e'] = 'insert_entry',
   ['ctrl-c'] = 'insert_citation',
@@ -95,7 +95,7 @@ local function initFiles()
 end
 
 local function read_file(file)
-  local labels = {}
+  local keys = {}
   local contents = {}
   local search_relevants = {}
   local p = path:new(file)
@@ -110,18 +110,18 @@ local function read_file(file)
     if entry == nil then
       break
     end
-    local label = entry:match('{%s*[^{},~#%\\]+,\n')
-    if label then
-      label = vim.trim(label:gsub('\n', ''):sub(2, -2))
+    local citekey = entry:match('{%s*[^{},~#%\\]+,\n')
+    if citekey then
+      citekey = vim.trim(citekey:gsub('\n', ''):sub(2, -2))
       local content = vim.split(entry, '\n')
-      table.insert(labels, label)
-      contents[label] = content
-      search_relevants[label] = {}
-      if table_contains(search_keys, [[label]]) then
-        search_relevants[label]['label'] = label
+      table.insert(keys, citekey)
+      contents[citekey] = content
+      search_relevants[citekey] = {}
+      if table_contains(search_fields, [[citekey]]) then
+        search_relevants[citekey]['citekey'] = citekey
       end
-      for _, key in pairs(search_keys) do
-        local key_pattern = utils.construct_case_insensitive_pattern(key)
+      for _, field in pairs(search_fields) do
+        local key_pattern = utils.construct_case_insensitive_pattern(field)
         local match_base = '%f[%w]' .. key_pattern
         local s = nil
         local bracket_match = entry:match(match_base .. '%s*=%s*%b{}')
@@ -136,18 +136,18 @@ local function read_file(file)
         end
         if s ~= nil then
           s = s:gsub('["{}\n]', ''):gsub('%s%s+', ' ')
-          search_relevants[label][string.lower(key)] = vim.trim(s)
+          search_relevants[citekey][string.lower(field)] = vim.trim(s)
         end
       end
     end
     data = data:sub(#entry + 2)
   end
-  return labels, contents, search_relevants
+  return keys, contents, search_relevants
 end
 
 local function formatDisplay(entry)
   local display_string = ''
-  for _, val in pairs(search_keys) do
+  for _, val in pairs(search_fields) do
     if tonumber(entry[val]) ~= nil then
       display_string = display_string .. ' ' .. '(' .. entry[val] .. ')'
     elseif entry[val] ~= nil then
@@ -217,12 +217,12 @@ local function get_entries(opts)
         entries[entry] = {
           key = entry,
           content = content[entry],
-          search_keys = search_relevants[entry],
+          search_field = search_relevants[entry],
         }
         table.insert(file.entries, {
           key = entry,
           content = content[entry],
-          search_keys = search_relevants[entry],
+          search_field = search_relevants[entry],
         })
       end
       file.mtime = mtime
@@ -302,7 +302,7 @@ local actions = {
       fn = function(selected)
         local key = vim.split(selected[1], delimiter)[2]
         local text = entries[key].content
-        local citation = utils.format_citation(text, citation_format, opts)
+        local citation = utils.format_citation(text, opts.citation_format or citation_format, opts)
         local mode = vim.api.nvim_get_mode().mode
         if mode == 'i' then
           vim.api.nvim_put({ citation }, '', false, true)
@@ -347,16 +347,22 @@ local actions = {
   end,
 }
 
-local function bibtex_picker(opts)
+local function search(opts)
   opts = opts or {}
   entries = get_entries(opts)
   local _actions = {}
-  for key, action in pairs(keymaps) do
-    _actions[key] = actions[action](opts)
+  for key, action in pairs(keymap) do
+    if type(action) == 'string' then
+      _actions[key] = actions[action](opts)
+    elseif type(action) == 'function' then
+      _actions[key] = action(opts)
+    else
+      _actions[key] = action
+    end
   end
   fzf.fzf_exec(function(fzf_cb)
     for key, entry in pairs(entries) do
-      local display_string = formatDisplay(entry.search_keys)
+      local display_string = formatDisplay(entry.search_fields)
       if display_string == '' then
         display_string = key
       end
@@ -395,13 +401,13 @@ return {
         table.insert(user_files, vim.fn.expand(file))
       end
     end
-    search_keys = opts.search_keys or search_keys
-    citation_format = opts.citation_format
-      or '{{author}} ({{year}}). {{title}}.'
+    search_fields = opts.search_field or search_fields
+    citation_format = opts.citation_format or citation_format
     citation_trim_firstname = opts.citation_trim_firstname
       or citation_trim_firstname
     citation_max_auth = opts.citation_max_auth or citation_max_auth
-    keymaps = vim.tbl_extend('force', keymaps, opts.mappings or {})
+    keymap = vim.tbl_extend('force', keymap, opts.mappings or {})
   end,
-  bibtex = bibtex_picker,
+  search = search,
+  actions = actions,
 }

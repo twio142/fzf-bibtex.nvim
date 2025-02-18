@@ -52,7 +52,7 @@ M.parse_entry = function(entry)
   for _, line in pairs(entry) do
     if line:sub(1, 1) == '@' then
       parsed.type = string.match(line, '^@(.-){')
-      parsed.label = string.match(line, '^@.+{(.-),$')
+      parsed.citekey = string.match(line, '^@.+{(.-),$')
     end
     for field, val in string.gmatch(line, '(%w+)%s*=%s*["{]*(.-)["}],?$') do
       parsed[string.lower(field)] = M.clean_str(val, '[%{|%}]')
