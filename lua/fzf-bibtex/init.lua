@@ -34,7 +34,7 @@ local citation_trim_firstname = true
 local citation_max_auth = 2
 local user_context = false
 local user_context_fallback = true
-local delimiter = vim.fn['repeat']('\t', 20)
+local delimiter = '\u{2002}'
 local keymap = {
   default = 'insert_key',
   ['ctrl-e'] = 'insert_entry',
@@ -362,7 +362,7 @@ local function search(opts)
   end
   fzf.fzf_exec(function(fzf_cb)
     for key, entry in pairs(entries) do
-      local display_string = formatDisplay(entry.search_fields)
+      local display_string = formatDisplay(entry.search_field)
       if display_string == '' then
         display_string = key
       end
@@ -375,7 +375,7 @@ local function search(opts)
       title = ' Search citations ',
       preview = { border = 'rounded', layout = 'vertical' },
     },
-    fzf_opts = { ['--ellipsis'] = ' ' },
+    fzf_opts = { ['--delimiter'] = delimiter, ['--with-nth'] = '1' },
     previewer = MyPreviewer,
     actions = _actions,
   })
