@@ -401,7 +401,7 @@ return {
         table.insert(user_files, vim.fn.expand(file))
       end
     end
-    search_fields = opts.search_field or search_fields
+    search_fields = opts.search_fields or search_fields
     citation_format = opts.citation_format or citation_format
     citation_trim_firstname = opts.citation_trim_firstname
       or citation_trim_firstname
