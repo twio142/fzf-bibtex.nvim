@@ -117,7 +117,7 @@ local function read_file(file)
       table.insert(keys, citekey)
       contents[citekey] = content
       search_relevants[citekey] = {}
-      if table_contains(search_fields, [[citekey]]) then
+      if table_contains(search_fields, 'citekey') then
         search_relevants[citekey]['citekey'] = citekey
       end
       for _, field in pairs(search_fields) do
@@ -217,12 +217,12 @@ local function get_entries(opts)
         entries[entry] = {
           key = entry,
           content = content[entry],
-          search_field = search_relevants[entry],
+          search_fields = search_relevants[entry],
         }
         table.insert(file.entries, {
           key = entry,
           content = content[entry],
-          search_field = search_relevants[entry],
+          search_fields = search_relevants[entry],
         })
       end
       file.mtime = mtime
@@ -302,7 +302,11 @@ local actions = {
       fn = function(selected)
         local key = vim.split(selected[1], delimiter)[2]
         local text = entries[key].content
-        local citation = utils.format_citation(text, opts.citation_format or citation_format, opts)
+        local citation = utils.format_citation(
+          text,
+          opts.citation_format or citation_format,
+          opts
+        )
         local mode = vim.api.nvim_get_mode().mode
         if mode == 'i' then
           vim.api.nvim_put({ citation }, '', false, true)
@@ -362,7 +366,7 @@ local function search(opts)
   end
   fzf.fzf_exec(function(fzf_cb)
     for key, entry in pairs(entries) do
-      local display_string = formatDisplay(entry.search_field)
+      local display_string = formatDisplay(entry.search_fields)
       if display_string == '' then
         display_string = key
       end
@@ -371,8 +375,9 @@ local function search(opts)
     end
     fzf_cb()
   end, {
+    query = opts.query or '',
     winopts = {
-      title = ' Search citations ',
+      title = ' Citations ',
       preview = { border = 'rounded', layout = 'vertical' },
     },
     fzf_opts = { ['--delimiter'] = delimiter, ['--with-nth'] = '1' },
@@ -401,7 +406,7 @@ return {
         table.insert(user_files, vim.fn.expand(file))
       end
     end
-    search_fields = opts.search_field or search_fields
+    search_fields = opts.search_fields or search_fields
     citation_format = opts.citation_format or citation_format
     citation_trim_firstname = opts.citation_trim_firstname
       or citation_trim_firstname

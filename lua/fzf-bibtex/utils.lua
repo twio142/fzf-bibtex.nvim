@@ -1,7 +1,5 @@
 local M = {}
 
-
-
 M.file_present = function(table, filename)
   for _, file in pairs(table) do
     if file.name == filename then
@@ -707,7 +705,6 @@ M.parse_wrap = function(opts, user_wrap)
   return wrap
 end
 
-
 -- Parse bibtex entry and format the citation
 M.format_citation = function(entry, template, opts)
   local parsed = M.parse_entry(entry)
@@ -721,8 +718,8 @@ end
 
 -- Make a dict of parsed bibtex fields
 M.get_bibkeys = function(parsed_entry)
-  local bibkeys={}
-  for key,_ in pairs(parsed_entry) do
+  local bibkeys = {}
+  for key, _ in pairs(parsed_entry) do
     table.insert(bibkeys, key)
   end
   return bibkeys
