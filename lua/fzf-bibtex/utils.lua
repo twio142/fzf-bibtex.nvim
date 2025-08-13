@@ -25,6 +25,26 @@ M.construct_case_insensitive_pattern = function(key)
   return pattern
 end
 
+M.extract_field = function(entry, field)
+  local key_pattern = M.construct_case_insensitive_pattern(field)
+  local match_base = '%f[%w]' .. key_pattern
+  local value = nil
+  local bracket_match = entry:match(match_base .. '%s*=%s*%b{}')
+  local quote_match = entry:match(match_base .. '%s*=%s*%b""')
+  local number_match = entry:match(match_base .. '%s*=%s*%d+')
+  if bracket_match ~= nil then
+    value = bracket_match:match('%b{}')
+  elseif quote_match ~= nil then
+    value = quote_match:match('%b""')
+  elseif number_match ~= nil then
+    value = number_match:match('%d+')
+  end
+  if value ~= nil then
+    value = vim.trim(value:gsub('["{}\n]', ''):gsub('%s%s+', ' '))
+  end
+  return value
+end
+
 -- Split a string according to a delimiter
 M.split_str = function(str, delim)
   local result = {}

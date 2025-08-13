@@ -121,22 +121,9 @@ local function read_file(file)
         search_relevants[citekey]['citekey'] = citekey
       end
       for _, field in pairs(search_fields) do
-        local key_pattern = utils.construct_case_insensitive_pattern(field)
-        local match_base = '%f[%w]' .. key_pattern
-        local s = nil
-        local bracket_match = entry:match(match_base .. '%s*=%s*%b{}')
-        local quote_match = entry:match(match_base .. '%s*=%s*%b""')
-        local number_match = entry:match(match_base .. '%s*=%s*%d+')
-        if bracket_match ~= nil then
-          s = bracket_match:match('%b{}')
-        elseif quote_match ~= nil then
-          s = quote_match:match('%b""')
-        elseif number_match ~= nil then
-          s = number_match:match('%d+')
-        end
-        if s ~= nil then
-          s = s:gsub('["{}\n]', ''):gsub('%s%s+', ' ')
-          search_relevants[citekey][string.lower(field)] = vim.trim(s)
+        local value = utils.extract_field(entry, field)
+        if value ~= nil then
+          search_relevants[citekey][string.lower(field)] = value
         end
       end
     end
@@ -386,6 +373,18 @@ local function search(opts)
   })
 end
 
+local function find_entry(key, field)
+  local entry = entries[key]
+  if not entry then
+    return nil
+  end
+  if field then
+    return entry.search_fields[field] or utils.extract_field(table.concat(entry.content, '\n'), field)
+  else
+    return entry
+  end
+end
+
 return {
   setup = function(opts)
     depth = opts.depth or depth
@@ -415,4 +414,5 @@ return {
   end,
   search = search,
   actions = actions,
+  find_entry = find_entry,
 }
