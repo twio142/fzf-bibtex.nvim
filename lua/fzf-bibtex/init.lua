@@ -41,6 +41,7 @@ local keymap = {
   ['ctrl-c'] = 'insert_citation',
   ['ctrl-f'] = 'manage_fields',
   ['ctrl-y'] = 'yank_key',
+  ['ctrl-o'] = 'open_in_zotero',
 }
 
 local function table_contains(table, element)
@@ -267,23 +268,6 @@ local actions = {
     }
   end,
 
-  insert_entry = function()
-    return {
-      fn = function(selected)
-        local key = vim.split(selected[1], delimiter)[2]
-        local text = entries[key].content
-        local mode = vim.api.nvim_get_mode().mode
-        if mode == 'i' then
-          vim.api.nvim_put(text, '', false, true)
-          vim.api.nvim_feedkeys('a', 'n', true)
-        else
-          vim.api.nvim_put(text, '', true, true)
-        end
-      end,
-      desc = 'insert-entry',
-    }
-  end,
-
   insert_citation = function(opts)
     return {
       fn = function(selected)
@@ -306,36 +290,56 @@ local actions = {
     }
   end,
 
-  manage_fields = function()
-    return {
-      fn = function()
-        local winid = vim.api.nvim_get_current_win()
-        vim.api.nvim_feedkeys('<c-\\><c-n>', 'n', true)
-        for _, win in ipairs(vim.api.nvim_list_wins()) do
-          local buf = vim.api.nvim_win_get_buf(win)
-          if vim.bo[buf].filetype == 'bib' then
-            vim.api.nvim_set_current_win(win)
-            vim.keymap.set('n', 'q', '<c-w>' .. winid .. 'w', { buffer = buf })
-            break
-          end
-        end
-      end,
-      desc = 'manage-fields',
-      exec_silent = true,
-    }
-  end,
+  insert_entry = {
+    fn = function(selected)
+      local key = vim.split(selected[1], delimiter)[2]
+      local text = entries[key].content
+      local mode = vim.api.nvim_get_mode().mode
+      if mode == 'i' then
+        vim.api.nvim_put(text, '', false, true)
+        vim.api.nvim_feedkeys('a', 'n', true)
+      else
+        vim.api.nvim_put(text, '', true, true)
+      end
+    end,
+    desc = 'insert-entry',
+  },
 
-  yank_key = function()
-    return {
-      fn = function(selected)
-        local key = vim.split(selected[1], delimiter)[2]
-        vim.fn.setreg('"', key)
-        vim.notify('Yanked: ' .. key)
-      end,
-      desc = 'yank-key',
-      exec_silent = true,
-    }
-  end,
+  manage_fields = {
+    fn = function()
+      local winid = vim.api.nvim_get_current_win()
+      vim.api.nvim_feedkeys('<c-\\><c-n>', 'n', true)
+      for _, win in ipairs(vim.api.nvim_list_wins()) do
+        local buf = vim.api.nvim_win_get_buf(win)
+        if vim.bo[buf].filetype == 'bib' then
+          vim.api.nvim_set_current_win(win)
+          vim.keymap.set('n', 'q', '<c-w>' .. winid .. 'w', { buffer = buf })
+          break
+        end
+      end
+    end,
+    desc = 'manage-fields',
+    exec_silent = true,
+  },
+
+  yank_key = {
+    fn = function(selected)
+      local key = vim.split(selected[1], delimiter)[2]
+      vim.fn.setreg('"', key)
+      vim.notify('Yanked: ' .. key)
+    end,
+    desc = 'yank-key',
+    exec_silent = true,
+  },
+
+  open_in_zotero = {
+    fn = function(selected)
+      local key = vim.split(selected[1], '\u{2002}')[2]
+      vim.ui.open('zotero://select/items/@' .. key)
+    end,
+    desc = 'open-in-zotero',
+    exec_silent = true,
+  },
 }
 
 local function search(opts)
@@ -344,7 +348,11 @@ local function search(opts)
   local _actions = {}
   for key, action in pairs(keymap) do
     if type(action) == 'string' then
-      _actions[key] = actions[action](opts)
+      if type(actions[action]) == 'function' then
+        _actions[key] = actions[action](opts)
+      else
+        _actions[key] = actions[action]
+      end
     elseif type(action) == 'function' then
       _actions[key] = action(opts)
     else
@@ -379,7 +387,8 @@ local function find_entry(key, field)
     return nil
   end
   if field then
-    return entry.search_fields[field] or utils.extract_field(table.concat(entry.content, '\n'), field)
+    return entry.search_fields[field]
+      or utils.extract_field(table.concat(entry.content, '\n'), field)
   else
     return entry
   end
