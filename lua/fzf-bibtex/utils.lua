@@ -794,12 +794,13 @@ function M.show_tooltip(lines)
 
   vim.api.nvim_create_autocmd({ 'CursorMoved', 'CursorMovedI' }, {
     once = true,
-    callback = function()
-      if vim.api.nvim_buf_is_valid(buf) then
+    callback = function(ctx)
+      if ctx.buf ~= buf and vim.api.nvim_buf_is_valid(buf) then
         vim.api.nvim_buf_delete(buf, { force = true })
       end
     end,
   })
+  return buf
 end
 
 function M.get_citekey_under_cursor()

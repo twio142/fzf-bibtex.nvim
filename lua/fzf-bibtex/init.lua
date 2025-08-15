@@ -397,7 +397,17 @@ local function find_entry(key, field)
   end
 end
 
+local tooltip_buf
+
 local function show_entry_under_cursor()
+  if tooltip_buf and vim.api.nvim_buf_is_valid(tooltip_buf) then
+    local wins = vim.fn.win_findbuf(tooltip_buf)
+    if #wins > 0 then
+      vim.api.nvim_set_current_win(wins[1])
+      return
+    end
+  end
+
   local citekey = utils.get_citekey_under_cursor()
   if not citekey then
     vim.notify('No citekey found')
@@ -419,7 +429,16 @@ local function show_entry_under_cursor()
   if year then
     lines[2] = lines[2] .. ' (' .. year .. ')'
   end
-  utils.show_tooltip(lines)
+  tooltip_buf = utils.show_tooltip(lines)
+  if tooltip_buf then
+    vim.api.nvim_create_autocmd({ 'BufWipeout', 'BufDelete' }, {
+      buffer = tooltip_buf,
+      once = true,
+      callback = function()
+        tooltip_buf = nil
+      end,
+    })
+  end
 end
 
 return {
