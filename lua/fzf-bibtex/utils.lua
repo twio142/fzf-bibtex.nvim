@@ -1,6 +1,6 @@
 local M = {}
 
-M.file_present = function(table, filename)
+function M.file_present(table, filename)
   for _, file in pairs(table) do
     if file.name == filename then
       return true
@@ -9,7 +9,7 @@ M.file_present = function(table, filename)
   return false
 end
 
-M.construct_case_insensitive_pattern = function(key)
+function M.construct_case_insensitive_pattern(key)
   local pattern = ''
   for char in key:gmatch('.') do
     if char:match('%a') then
@@ -25,7 +25,7 @@ M.construct_case_insensitive_pattern = function(key)
   return pattern
 end
 
-M.extract_field = function(entry, field)
+function M.extract_field(entry, field)
   local key_pattern = M.construct_case_insensitive_pattern(field)
   local match_base = '%f[%w]' .. key_pattern
   local value = nil
@@ -46,7 +46,7 @@ M.extract_field = function(entry, field)
 end
 
 -- Split a string according to a delimiter
-M.split_str = function(str, delim)
+function M.split_str(str, delim)
   local result = {}
   for match in (str .. delim):gmatch('(.-)' .. delim) do
     table.insert(result, match)
@@ -55,7 +55,7 @@ M.split_str = function(str, delim)
 end
 
 -- Remove unwanted char from string
-M.clean_str = function(str, exp)
+function M.clean_str(str, exp)
   str = M.clean_accents(str)
   if str ~= nil then
     str = str:gsub(exp, '')
@@ -65,7 +65,7 @@ M.clean_str = function(str, exp)
 end
 
 -- Parse bibtex entry into a table
-M.parse_entry = function(entry)
+function M.parse_entry(entry)
   local parsed = {}
   for _, line in pairs(entry) do
     if line:sub(1, 1) == '@' then
@@ -80,7 +80,7 @@ M.parse_entry = function(entry)
 end
 
 -- Format parsed entry according to template
-M.format_template = function(parsed, template)
+function M.format_template(parsed, template)
   local citation = template
 
   for k, v in pairs(parsed) do
@@ -94,7 +94,7 @@ M.format_template = function(parsed, template)
 end
 
 -- Replace string by initials of each word
-M.make_initials = function(str, delim)
+function M.make_initials(str, delim)
   delim = delim or ''
   local initials = ''
   local words = M.split_str(str, ' ')
@@ -110,7 +110,7 @@ M.make_initials = function(str, delim)
 end
 
 -- Abbreviate author firstnames
-M.abbrev_authors = function(parsed, opts)
+function M.abbrev_authors(parsed, opts)
   opts = opts or {}
   opts.trim_firstname = opts.trim_firstname or true
   opts.max_auth = opts.max_auth or 2
@@ -145,29 +145,29 @@ M.abbrev_authors = function(parsed, opts)
   return shortened
 end
 
-M.fileExists = function(file)
+function M.fileExists(file)
   return vim.fn.empty(vim.fn.glob(file)) == 0
 end
 
-M.bufferLines = function()
+function M.bufferLines()
   return vim.api.nvim_buf_get_lines(0, 0, -1, false)
 end
 
-M.extendRelativePath = function(rel_path)
+function M.extendRelativePath(rel_path)
   local base = vim.fn.expand('%:p:h')
   local path_sep = vim.loop.os_uname().sysname == 'Windows' and '\\' or '/'
   return base .. path_sep .. rel_path
 end
 
-M.trimWhitespace = function(str)
+function M.trimWhitespace(str)
   return str:match('^%s*(.-)%s*$')
 end
 
-M.isLatexFile = function()
+function M.isLatexFile()
   return vim.o.filetype == 'tex'
 end
 
-M.parseLatex = function()
+function M.parseLatex()
   local files = {}
   for _, line in ipairs(M.bufferLines()) do
     local bibs = line:match('^[^%%]*\\bibliography{(%g+)}')
@@ -189,7 +189,7 @@ M.parseLatex = function()
   return files
 end
 
-M.isPandocFile = function()
+function M.isPandocFile()
   return vim.o.filetype == 'pandoc'
     or vim.o.filetype == 'markdown'
     or vim.o.filetype == 'md'
@@ -197,7 +197,7 @@ M.isPandocFile = function()
     or vim.o.filetype == 'quarto'
 end
 
-M.parsePandoc = function()
+function M.parsePandoc()
   local files = {}
   local bibStarted = false
   local bibYaml = 'bibliography:'
@@ -238,7 +238,7 @@ M.parsePandoc = function()
 end
 
 -- Replace escaped accents by proper UTF-8 char
-M.clean_accents = function(str)
+function M.clean_accents(str)
   -- Mapping table from Zotero translator
   -- https://github.com/zotero/translators/blob/6e82d036fd57b5e914a940d763a5f32133fa6995/BibTeX.js#L2554-L3078
   local mappingTable = {
@@ -717,7 +717,7 @@ M.clean_accents = function(str)
   return str
 end
 
-M.parse_wrap = function(opts, user_wrap)
+function M.parse_wrap(opts, user_wrap)
   local wrap = user_wrap
   if opts.wrap ~= nil then
     wrap = opts.wrap
@@ -726,8 +726,11 @@ M.parse_wrap = function(opts, user_wrap)
 end
 
 -- Parse bibtex entry and format the citation
-M.format_citation = function(entry, template, opts)
+function M.format_citation(entry, template, opts)
   local parsed = M.parse_entry(entry)
+  if parsed.year == nil then
+    parsed.year = (parsed.date or ''):match('(%d%d%d%d)')
+  end
 
   if parsed.author ~= nil then
     parsed.author = M.abbrev_authors(parsed, opts)
@@ -737,7 +740,7 @@ M.format_citation = function(entry, template, opts)
 end
 
 -- Make a dict of parsed bibtex fields
-M.get_bibkeys = function(parsed_entry)
+function M.get_bibkeys(parsed_entry)
   local bibkeys = {}
   for key, _ in pairs(parsed_entry) do
     table.insert(bibkeys, key)
@@ -745,4 +748,77 @@ M.get_bibkeys = function(parsed_entry)
   return bibkeys
 end
 
+function M.show_tooltip(lines)
+  if not lines or #lines == 0 then
+    return
+  end
+
+  local max_width = 50
+
+  -- Create scratch buffer
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_set_option_value('textwidth', max_width, { buf = buf })
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+
+  -- Highlight first line as title
+  local ns = vim.api.nvim_create_namespace('fzf-bibtex')
+  vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
+  vim.hl.range(buf, ns, 'Title', { 0, 0 }, { 0, #lines[1] })
+
+  -- Calculate width/height
+  local width = 0
+  for _, line in ipairs(lines) do
+    if #line > width then
+      width = #line
+    end
+  end
+  width = math.min(width, max_width)
+
+  local height = 0
+  for _, line in ipairs(lines) do
+    height = height + math.max(1, math.ceil(#line / max_width))
+  end
+
+  -- Open floating window
+  local opts = {
+    relative = 'cursor',
+    row = 1,
+    col = 0,
+    width = width,
+    height = height,
+    style = 'minimal',
+    border = 'rounded',
+  }
+  local win = vim.api.nvim_open_win(buf, false, opts)
+  vim.api.nvim_set_option_value('linebreak', true, { win = win })
+
+  vim.api.nvim_create_autocmd({ 'CursorMoved', 'CursorMovedI' }, {
+    once = true,
+    callback = function()
+      if vim.api.nvim_buf_is_valid(buf) then
+        vim.api.nvim_buf_delete(buf, { force = true })
+      end
+    end,
+  })
+end
+
+function M.get_citekey_under_cursor()
+  local row, col = unpack(vim.api.nvim_win_get_cursor(0))
+  local line = vim.fn.getline(row)
+
+  for s, citekey, e in line:gmatch('()(@[^%s%[%]%(%){}<>;,.]+%d%d%d%d%a?)()') do
+    if col + 1 >= s and col + 1 <= e then
+      -- Check boundaries
+      local before = s > 1 and line:sub(s - 1, s - 1) or ''
+      local after = e <= #line and line:sub(e, e) or ''
+      if
+        not before:match('[%a\128-\255]') and not after:match('[%a\128-\255]')
+      then
+        return citekey
+      end
+    end
+  end
+
+  return nil
+end
 return M

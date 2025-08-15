@@ -382,6 +382,9 @@ local function search(opts)
 end
 
 local function find_entry(key, field)
+  if #entries == 0 then
+    entries = get_entries({})
+  end
   local entry = entries[key]
   if not entry then
     return nil
@@ -392,6 +395,31 @@ local function find_entry(key, field)
   else
     return entry
   end
+end
+
+local function show_entry_under_cursor()
+  local citekey = utils.get_citekey_under_cursor()
+  if not citekey then
+    vim.notify('No citekey found')
+    return
+  end
+  citekey = citekey:gsub('^@', '')
+  local title = find_entry(citekey, 'title')
+  if not title then
+    vim.notify('No entry found for @' .. citekey, vim.log.levels.WARN)
+    return
+  end
+  local lines = { title }
+  local author = find_entry(citekey, 'author')
+  if author then
+    table.insert(lines, author)
+  end
+  local year = find_entry(citekey, 'year') or find_entry(citekey, 'date') or ''
+  year = year:match('%d%d%d%d')
+  if year then
+    lines[2] = lines[2] .. ' (' .. year .. ')'
+  end
+  utils.show_tooltip(lines)
 end
 
 return {
@@ -424,4 +452,5 @@ return {
   search = search,
   actions = actions,
   find_entry = find_entry,
+  show_entry_under_cursor = show_entry_under_cursor,
 }
