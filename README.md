@@ -41,9 +41,10 @@ The entry picker comes with four different actions.
 |---------|------------------------------|--------|
 | `<cr>`  | Insert citekey               |@Newton1687|
 | `<c-y>` | Yank citekey                 |        |
-| `<c-f>` | Insert formatted citation    | Newton, I. (1687), _Philosophiae naturalis principa mathematica_.|
-| `<c-e>` | Focus on the preview window,<br /> allow you to yank any text.  |  |
-| `<c-o>` | Insert the whole entry       |@book{newton1687philosophiae,<br />&nbsp;&nbsp; title={Philosophiae naturalis principia mathematica},<br />&nbsp;&nbsp;  author={Newton, I.},<br />&nbsp;&nbsp;  year={1687},<br />&nbsp;&nbsp;  publisher={J. Societatis Regiae ac Typis J. Streater}<br />  }|
+| `<c-c>` | Insert formatted citation    | Newton, I. (1687), _Philosophiae naturalis principa mathematica_.|
+| `<c-o>` | Open entry in Zotero    | |
+| `<c-f>` | Focus on the preview window,<br /> allow you to yank any text.  |  |
+| `<c-e>` | Insert the whole entry       |@book{newton1687philosophiae,<br />&nbsp;&nbsp; title={Philosophiae naturalis principia mathematica},<br />&nbsp;&nbsp;  author={Newton, I.},<br />&nbsp;&nbsp;  year={1687},<br />&nbsp;&nbsp;  publisher={J. Societatis Regiae ac Typis J. Streater}<br />  }|
 
 ## Configuration
 
@@ -168,7 +169,7 @@ You can trim the first names, leave only the initials by setting `citation_trim_
 
 You can truncate multiple authors with _et al._ by setting `citation_max_auth` to the desired number of authors to keep.
 
-### Custom Mappings
+### Custom mappings
 
 To define a custom mapping you need to define one of the [actions](#keybindings-actions) provided by the plugin.
 You can pass options to the action to further customize it.
@@ -184,6 +185,14 @@ mappings = {
     ["<C-b>"] = actions.insert_citation({ -- citation_format: a string with keys in {{}} to be replaced
         citation_format = "[^@{{citekey}}]: {{author}}, {{title}}, {{journal}}, {{year}}, vol. {{volume}}, no. {{number}}, p. {{pages}}."
     }),
-    ["<C-c>"] = actions.insert_entry(),
+    ["<C-c>"] = "insert_entry", -- insert_entry takes no options
 }
+```
+
+### Show entry under cursor
+
+`show_entry_under_cursor` shows the entry for the citekey under cursor in a popup window.
+
+```lua
+vim.keymap.set('n', 'gK', require('fzf-bibtex').show_entry_under_cursor)
 ```
