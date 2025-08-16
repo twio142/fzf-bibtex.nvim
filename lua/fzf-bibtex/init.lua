@@ -422,6 +422,10 @@ local function show_entry_under_cursor()
   local lines = { title }
   local author = find_entry(citekey, 'author')
   if author then
+    author = utils.abbrev_authors({ author = author }, {
+      citation_trim_firstname = citation_trim_firstname,
+      citation_max_auth = citation_max_auth,
+    })
     table.insert(lines, author)
   end
   local year = find_entry(citekey, 'year') or find_entry(citekey, 'date') or ''

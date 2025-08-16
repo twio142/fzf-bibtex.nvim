@@ -112,8 +112,8 @@ end
 -- Abbreviate author firstnames
 function M.abbrev_authors(parsed, opts)
   opts = opts or {}
-  opts.trim_firstname = opts.trim_firstname or true
-  opts.max_auth = opts.max_auth or 2
+  opts.citation_trim_firstname = opts.citation_trim_firstname or true
+  opts.citation_max_auth = opts.citation_max_auth or 2
 
   local shortened
   local authors = {}
@@ -124,7 +124,7 @@ function M.abbrev_authors(parsed, opts)
     if firstnames == nil then
       firstnames, lastname = auth:match('(.*)% (.*)')
     end
-    if opts.trim_firstname == true and firstnames ~= nil then
+    if opts.citation_trim_firstname == true and firstnames ~= nil then
       local initials = M.make_initials(firstnames, '.')
       auth = lastname .. ', ' .. initials
     end
@@ -132,8 +132,9 @@ function M.abbrev_authors(parsed, opts)
     table.insert(authors, auth)
   end
 
-  if #authors > opts.max_auth then
-    shortened = table.concat(authors, ', ', 1, opts.max_auth) .. ', et al.'
+  if #authors > opts.citation_max_auth then
+    shortened = table.concat(authors, ', ', 1, opts.citation_max_auth)
+      .. ', et al.'
   elseif #authors == 1 then
     shortened = authors[1]
   else
@@ -155,7 +156,7 @@ end
 
 function M.extendRelativePath(rel_path)
   local base = vim.fn.expand('%:p:h')
-  local path_sep = vim.loop.os_uname().sysname == 'Windows' and '\\' or '/'
+  local path_sep = vim.uv.os_uname().sysname == 'Windows' and '\\' or '/'
   return base .. path_sep .. rel_path
 end
 
