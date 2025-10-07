@@ -265,6 +265,7 @@ local actions = {
         end
       end,
       desc = 'insert-key',
+      header = 'Insert key',
     }
   end,
 
@@ -287,6 +288,7 @@ local actions = {
         end
       end,
       desc = 'insert-citation',
+      header = 'Insert citation',
     }
   end,
 
@@ -303,6 +305,7 @@ local actions = {
       end
     end,
     desc = 'insert-entry',
+    header = 'Insert entry',
   },
 
   manage_fields = {
@@ -338,6 +341,7 @@ local actions = {
       vim.ui.open('zotero://select/items/@' .. key)
     end,
     desc = 'open-in-zotero',
+    header = 'Open in Zotero',
     exec_silent = true,
   },
 }
