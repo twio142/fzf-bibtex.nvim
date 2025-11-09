@@ -24,7 +24,6 @@ local fallback_format = 'plain'
 local use_auto_format = false
 local user_format = ''
 local user_files = {}
-local files_initialized = false
 local files = {}
 local entries = {}
 local context_files = {}
@@ -53,22 +52,41 @@ local function table_contains(table, element)
   return false
 end
 
-local function getContextBibFiles()
+local function get_context_bib_files(bufnr)
+  local is_explicit_call = bufnr ~= nil
+  bufnr = bufnr or 0 -- Default to current buffer if not provided
+
   local found_files = {}
-  context_files = {}
-  if utils.isPandocFile() then
-    found_files = utils.parsePandoc()
-  elseif utils.isLatexFile() then
-    found_files = utils.parseLatex()
+  if utils.is_pandoc_file(bufnr) then
+    found_files = utils.parse_pandoc(bufnr)
+  elseif utils.is_latex_file(bufnr) then
+    found_files = utils.parse_latex(bufnr)
   end
-  for _, file in pairs(found_files) do
-    if not utils.file_present(context_files, file) then
-      table.insert(context_files, { name = file, mtime = 0, entries = {} })
+
+  if is_explicit_call then
+    -- If bufnr was provided, this is for the new exported function.
+    -- Return a new table directly without touching the module-level variable.
+    local files_for_buffer = {}
+    for _, file in pairs(found_files) do
+      if not utils.file_present(files_for_buffer, file) then
+        table.insert(files_for_buffer, { name = file, mtime = 0, entries = {} })
+      end
     end
+    return files_for_buffer
+  else
+    -- This is the original behavior, called from get_entries().
+    -- Clear and populate the module-level context_files.
+    context_files = {}
+    for _, file in pairs(found_files) do
+      if not utils.file_present(context_files, file) then
+        table.insert(context_files, { name = file, mtime = 0, entries = {} })
+      end
+    end
+    -- No return value needed here as it modifies the upvalue.
   end
 end
 
-local function getBibFiles(dir)
+local function get_bib_files(dir)
   scan.scan_dir(dir, {
     depth = depth,
     search_pattern = '.*%.bib',
@@ -81,18 +99,18 @@ local function getBibFiles(dir)
   })
 end
 
-local function initFiles()
+local function init_files()
   for _, file in pairs(user_files) do
     local p = path:new(file)
     if p:is_dir() then
-      getBibFiles(file)
+      get_bib_files(file)
     elseif p:is_file() then
       if not utils.file_present(files, file) then
         table.insert(files, { name = file, mtime = 0, entries = {} })
       end
     end
   end
-  getBibFiles('.')
+  get_bib_files('.')
 end
 
 local function read_file(file)
@@ -133,7 +151,7 @@ local function read_file(file)
   return keys, contents, search_relevants
 end
 
-local function formatDisplay(entry)
+local function format_display(entry)
   local display_string = ''
   for _, val in pairs(search_fields) do
     if tonumber(entry[val]) ~= nil then
@@ -185,11 +203,7 @@ local function get_entries(opts)
   local context = parse_context(opts)
   local context_fallback = parse_context_fallback(opts)
   if context then
-    getContextBibFiles()
-  end
-  if not files_initialized then
-    initFiles()
-    files_initialized = true
+    get_context_bib_files()
   end
   entries = {}
   local current_files = files
@@ -223,15 +237,37 @@ local function get_entries(opts)
   return entries
 end
 
-local MyPreviewer = builtin.base:extend()
+local function get_bib_files_for_buffer(bufnr)
+  bufnr = bufnr or 0
+  local current_context_files = {}
+  if user_context then
+    current_context_files = get_context_bib_files(bufnr)
+  end
 
-function MyPreviewer:new(o, opts, fzf_win)
-  MyPreviewer.super.new(self, o, opts, fzf_win)
-  setmetatable(self, MyPreviewer)
+  local bib_files = {}
+  if
+    user_context and (not user_context_fallback or next(current_context_files))
+  then
+    for _, file_data in pairs(current_context_files) do
+      table.insert(bib_files, file_data.name)
+    end
+  else
+    for _, file_data in pairs(files) do
+      table.insert(bib_files, file_data.name)
+    end
+  end
+  return bib_files
+end
+
+local previewer = builtin.base:extend()
+
+function previewer:new(o, opts, fzf_win)
+  previewer.super.new(self, o, opts, fzf_win)
+  setmetatable(self, previewer)
   return self
 end
 
-function MyPreviewer:populate_preview_buf(entry_str)
+function previewer:populate_preview_buf(entry_str)
   local key = vim.split(entry_str, delimiter)[2]
   local entry = entries[key]
   local bufnr = self:get_tmp_buffer()
@@ -241,7 +277,7 @@ function MyPreviewer:populate_preview_buf(entry_str)
   self.win:update_preview_scrollbar()
 end
 
-function MyPreviewer:gen_winopts()
+function previewer:gen_winopts()
   local new_winopts = {
     wrap = true,
     number = false,
@@ -365,7 +401,7 @@ local function search(opts)
   end
   fzf.fzf_exec(function(fzf_cb)
     for key, entry in pairs(entries) do
-      local display_string = formatDisplay(entry.search_fields)
+      local display_string = format_display(entry.search_fields)
       if display_string == '' then
         display_string = key
       end
@@ -380,7 +416,7 @@ local function search(opts)
       preview = { border = 'rounded', layout = 'vertical' },
     },
     fzf_opts = { ['--delimiter'] = delimiter, ['--with-nth'] = '1' },
-    previewer = MyPreviewer,
+    previewer = previewer,
     actions = _actions,
   })
 end
@@ -475,9 +511,11 @@ return {
       or citation_trim_firstname
     citation_max_auth = opts.citation_max_auth or citation_max_auth
     keymap = vim.tbl_extend('force', keymap, opts.mappings or {})
+    init_files()
   end,
   search = search,
   actions = actions,
   find_entry = find_entry,
   show_entry_under_cursor = show_entry_under_cursor,
+  get_bib_files_for_buffer = get_bib_files_for_buffer,
 }
