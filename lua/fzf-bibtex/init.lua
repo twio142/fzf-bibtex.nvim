@@ -11,15 +11,29 @@ local path = require('plenary.path')
 local loop = vim.uv
 
 local depth = 1
-local formats = {}
-formats['tex'] = '\\cite{%s}'
-formats['md'] = '@%s'
-formats['markdown'] = '@%s'
-formats['typst'] = '@%s'
-formats['rmd'] = '@%s'
-formats['quarto'] = '@%s'
-formats['pandoc'] = '@%s'
-formats['plain'] = '%s'
+local formats = {
+  tex = '\\cite{%s}',
+  md = '@%s',
+  markdown = '@%s',
+  typst = '@%s',
+  rmd = '@%s',
+  quarto = '@%s',
+  pandoc = '@%s',
+  plain = '%s',
+}
+local multi_formats = {
+  tex = function(keys)
+    return '\\cite{' .. table.concat(keys, ',') .. '}'
+  end,
+  markdown = function(keys)
+    return table.concat(
+      vim.tbl_map(function(k)
+        return '@' .. k
+      end, keys),
+      '; '
+    )
+  end,
+}
 local fallback_format = 'plain'
 local use_auto_format = false
 local user_format = ''
@@ -290,9 +304,34 @@ local actions = {
     local format_string = parse_format_string(opts)
     return {
       fn = function(selected)
+        if #selected == 0 then
+          return
+        end
+        local text
+        local keys = {}
+        for _, item in ipairs(selected) do
+          local key = vim.split(item, delimiter)[2]
+          table.insert(keys, key)
+        end
+        if #keys == 1 then
+          text = string.format(format_string, keys[1])
+        else
+          local multi_format = multi_formats[vim.bo.filetype]
+          if multi_format == nil and format_string == formats['markdown'] then
+            multi_format = multi_formats['markdown']
+          end
+          if multi_format then
+            text = multi_format(keys)
+          else
+            text = table.concat(
+              vim.tbl_map(function(k)
+                return string.format(format_string, k)
+              end, keys),
+              ', '
+            )
+          end
+        end
         local mode = vim.api.nvim_get_mode().mode
-        local key = vim.split(selected[1], delimiter)[2]
-        local text = string.format(format_string, key)
         if mode == 'i' then
           vim.api.nvim_put({ text }, '', false, true)
           vim.api.nvim_feedkeys('a', 'n', true)
@@ -308,19 +347,28 @@ local actions = {
   insert_citation = function(opts)
     return {
       fn = function(selected)
-        local key = vim.split(selected[1], delimiter)[2]
-        local text = entries[key].content
-        local citation = utils.format_citation(
-          text,
-          opts.citation_format or citation_format,
-          opts
-        )
+        if #selected == 0 then
+          return
+        end
+        local citations = {}
+        for _, item in ipairs(selected) do
+          local key = vim.split(item, delimiter)[2]
+          local text = entries[key].content
+          table.insert(
+            citations,
+            utils.format_citation(
+              text,
+              opts.citation_format or citation_format,
+              opts
+            )
+          )
+        end
         local mode = vim.api.nvim_get_mode().mode
         if mode == 'i' then
-          vim.api.nvim_put({ citation }, '', false, true)
+          vim.api.nvim_put(citations, '', false, true)
           vim.api.nvim_feedkeys('a', 'n', true)
         else
-          vim.api.nvim_paste(citation, true, -1)
+          vim.api.nvim_paste(table.concat(citations, '\n'), true, -1)
         end
       end,
       desc = 'insert-citation',
@@ -330,8 +378,14 @@ local actions = {
 
   insert_entry = {
     fn = function(selected)
-      local key = vim.split(selected[1], delimiter)[2]
-      local text = entries[key].content
+      if #selected == 0 then
+        return
+      end
+      local text = {}
+      for _, item in ipairs(selected) do
+        local key = vim.split(item, delimiter)[2]
+        text = vim.list_extend(text, entries[key].content)
+      end
       local mode = vim.api.nvim_get_mode().mode
       if mode == 'i' then
         vim.api.nvim_put(text, '', false, true)
@@ -415,7 +469,11 @@ local function search(opts)
       title = ' Citations ',
       preview = { border = 'rounded', layout = 'vertical' },
     },
-    fzf_opts = { ['--delimiter'] = delimiter, ['--with-nth'] = '1' },
+    fzf_opts = {
+      ['--delimiter'] = delimiter,
+      ['--with-nth'] = '1',
+      ['--multi'] = true,
+    },
     previewer = previewer,
     actions = _actions,
   })
